@@ -1,0 +1,23 @@
+service: sap-ccms
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: provided
+  region: ap-northeast-1
+  ecr:
+    images:
+      ccms:
+        path: .
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - secretsmanager:GetSecretValue
+          Resource: "*"
+functions:
+  ccms:
+    image:
+      name: ccms
