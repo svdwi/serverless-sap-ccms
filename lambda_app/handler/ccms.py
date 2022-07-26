@@ -177,6 +177,7 @@ def handler(event, context=None):
         )
         logger.info(f"MTE-> {mte}, VALUE-> {current_val}")
         logger.info("completed")
+        return {"mte": mte.dict(), "current_value": current_val}
     except Exception as e:
         logger.error(e)
     finally:
