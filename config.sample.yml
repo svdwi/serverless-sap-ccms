@@ -1,0 +1,11 @@
+region: ap-northeast-1
+securityGroupIds:
+  - sg-xxxxxx
+subnetIds:
+  - subnet-xxxxx
+secretName: serverless/sap/ccms
+lambdaEnv:
+  extCompany: DUMMY
+  extProduct: DUMMY
+  externalUserName: DUMMY
+  traceLevel: 0

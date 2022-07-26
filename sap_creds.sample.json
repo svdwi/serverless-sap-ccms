@@ -1,5 +1,6 @@
 {
-    "ashost": "0.0.0.0",
+    "sid": "ABA",
+    "ashost": "192.0.2.1",
     "sysnr": "00",
     "client": "800",
     "user": "sapuser",

@@ -1,36 +1,34 @@
+import os
 import logging
 from enum import Enum
 import json
 
-from pprint import pprint
-from pydantic import BaseModel
 
 import boto3
-
+from pydantic import BaseModel
 from pyrfc import Connection
 
 
-SECRET_NAME = "test/ccms_lambda"
-
-SAP_SID = "ABA"
-EXT_COMPANY = "DUMMY"
-EXT_PRODUCT = "DUMMY"
-EXT_USER_NAME = "DUMMY"
-
 SAP_INTERFACE = "XAL"
 SAP_INTERFACE_VERSION = "1.0"
-TRACE_LEVEL = "0"
+
+EXT_COMPANY = os.getenv("EXT_COMPANY")
+EXT_PRODUCT = os.getenv("EXT_PRODUCT")
+EXTERNAL_USER_NAME = os.getenv("EXTERNAL_USER_NAME")
+TRACE_LEVEL = os.getenv("TRACE_LEVEL")
+SECRET_NAME = os.getenv("SECRET_NAME")
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
-class SapCredential(BaseModel):
+class SapConnectionSecret(BaseModel):
+    sid: str
     ashost: str
     sysnr: str
     client: str
     user: str
     passwd: str
-    trace: str = TRACE_LEVEL
 
 
 class MteType(Enum):
@@ -48,6 +46,16 @@ class Mte(BaseModel):
     context_name: str
     object_name: str
     mte_name: str
+
+
+def get_sap_connection(sap_secret: SapConnectionSecret) -> Connection:
+    return Connection(
+        ashost=sap_secret.ashost,
+        sysnr=sap_secret.sysnr,
+        client=sap_secret.client,
+        user=sap_secret.user,
+        passwd=sap_secret.passwd,
+    )
 
 
 class CcmsBapiCaller:
@@ -147,14 +155,15 @@ class CcmsBapiCaller:
 
 def handler(event, context=None):
     # eventから監視対象のMTEを取得
+    logger.info(f"start event -> {event}")
     mte = Mte.parse_obj(event)
+    logger.info(f"target MTE -> {mte}")
+
+    secrets = boto3.client("secretsmanager").get_secret_value(SecretId=SECRET_NAME)
+    sap_secret = SapConnectionSecret.parse_obj(json.loads(secrets["SecretString"]))
 
     # 監視対象インスタンスへの接続情報を取得
-    secrets = boto3.client("secretsmanager").get_secret_value(SecretId=SECRET_NAME)
-    sap_cred = SapCredential.parse_obj(json.loads(secrets["SecretString"]))
-    print(sap_cred)
-    conn = Connection(**sap_cred.dict())
-    bapi = CcmsBapiCaller(conn=conn)
+    bapi = CcmsBapiCaller(conn=get_sap_connection(sap_secret=sap_secret))
 
     try:
         bapi.logon_xmi_interface(
@@ -164,41 +173,11 @@ def handler(event, context=None):
             version=SAP_INTERFACE_VERSION,
         )
         current_val = bapi.get_ccms_data(
-            sid=SAP_SID, mte=mte, external_user_name=EXT_USER_NAME
+            sid=sap_secret.sid, mte=mte, external_user_name=EXTERNAL_USER_NAME
         )
         logger.info(f"MTE-> {mte}, VALUE-> {current_val}")
+        logger.info("completed")
     except Exception as e:
         logger.error(e)
     finally:
         bapi.logoff_xmi_interface(name=SAP_INTERFACE)
-
-
-if __name__ == "__main__":
-    events = [
-        # PERF
-        {
-            "context_name": "vhcalabaci_ABA_00",
-            "object_name": "Dialog",
-            "mte_name": "ResponseTimeDialog",
-        },
-        # STATUS
-        # {
-        #    "context_name": "vhcalabaci_ABA_00",
-        #    "object_name": "R3Abap",
-        #    "mte_name": "Shortdumps",
-        # },
-        #
-        {
-            "context_name": "vhcalabaci_ABA_00",
-            "object_name": "InstanceAsTask",
-            "mte_name": "Log",
-        },
-        # TEXT
-        # {
-        #    "context_name": "vhcalabaci_ABA_00",
-        #    "object_name": "Server Configuration",
-        #    "mte_name": "Machine Type",
-        # },
-    ]
-    for e in events:
-        handler(event=e)

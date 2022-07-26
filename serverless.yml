@@ -1,23 +1,40 @@
-service: sap-ccms
+service: serverless-sap-ccms
 
 frameworkVersion: "3"
 
+custom:
+  defaultStageName: dev
+  config: ${file(./config.yml)}
+
 provider:
   name: aws
+  stage: ${opt:stage, self:custom.defaultStageName}
   runtime: provided
-  region: ap-northeast-1
+  region: ${self:custom.config.region}
   ecr:
     images:
       ccms:
         path: .
+  vpc:
+    securityGroupIds: ${self:custom.config.securityGroupIds}
+    subnetIds: ${self:custom.config.subnetIds}
   iam:
     role:
       statements:
         - Effect: "Allow"
           Action:
             - secretsmanager:GetSecretValue
-          Resource: "*"
+          Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${self:custom.config.secretName}-*"
+
 functions:
   ccms:
+    timeout: 10
+    memorySize: 128
     image:
       name: ccms
+    environment:
+      SECRET_NAME: ${self:custom.config.secretName}
+      EXT_COMPANY: ${self:custom.config.lambdaEnv.extCompany}
+      EXT_PRODUCT: ${self:custom.config.lambdaEnv.extProduct}
+      EXTERNAL_USER_NAME: ${self:custom.config.lambdaEnv.externalUserName}
+      TRACE_LEVEL: ${self:custom.config.lambdaEnv.traceLevel}
