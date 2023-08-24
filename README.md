@@ -1,13 +1,10 @@
 # Serverless SAP CCMS
-SAPのCCMSの情報を取得する処理をAWS Lambdaを中心とした仕組みで動かしています。
+The process of acquiring SAP CCMS information is operated by a mechanism centered on AWS Lambda.
 
 
-詳細は以下のブログに記載しています。
+Details are in the blog below.
 
 https://www.beex-inc.com/blog/get_sap_ccms_with_lambda_container
-## イメージ
+## image
 
 ![](./doc/image.drawio.png)
-
-
-
